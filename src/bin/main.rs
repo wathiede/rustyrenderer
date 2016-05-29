@@ -11,10 +11,36 @@ fn main() {
         g: 255,
         b: 255,
     };
+    let red = draw::RGB {
+        r: 255,
+        g: 0,
+        b: 0,
+    };
+    let green = draw::RGB {
+        r: 0,
+        g: 255,
+        b: 0,
+    };
+    let blue = draw::RGB {
+        r: 0,
+        g: 0,
+        b: 255,
+    };
 
-    let (width, height) = (512, 512);
+    let (width, height) = (128, 128);
     let mut im = draw::Image::new(width, height);
-    im.line(13, 20, 80, 40, white);
+    im.line(draw::Vec2i { x: 80, y: 40 },
+            draw::Vec2i { x: 13, y: 20 },
+            green);
+    im.line(draw::Vec2i { x: 13, y: 20 },
+            draw::Vec2i { x: 80, y: 40 },
+            white);
+    im.line(draw::Vec2i { x: 40, y: 80 },
+            draw::Vec2i { x: 20, y: 13 },
+            blue);
+    im.line(draw::Vec2i { x: 20, y: 13 },
+            draw::Vec2i { x: 40, y: 80 },
+            red);
 
     im.flip_y();
     let out_path = Path::new("output.png");
