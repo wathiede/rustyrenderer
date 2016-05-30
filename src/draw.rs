@@ -1,9 +1,5 @@
 use std::fmt;
-
-pub struct Vec2i {
-    pub x: i32,
-    pub y: i32,
-}
+use math::Vec2i;
 
 #[derive(Copy,Clone)]
 pub struct RGB {

@@ -4,4 +4,6 @@ version = "0.1.0"
 authors = ["Bill Thiede <git@xinu.tv>"]
 
 [dependencies]
+env_logger = "*"
 imagefmt = "*"
+log = "*"

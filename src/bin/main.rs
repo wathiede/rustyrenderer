@@ -1,11 +1,15 @@
+extern crate env_logger;
 extern crate imagefmt;
 extern crate rustyrenderer;
 
 use imagefmt::{ColFmt, ColType};
 use rustyrenderer::draw;
+use rustyrenderer::math;
+use rustyrenderer::wavefront;
 use std::path::Path;
 
 fn main() {
+    env_logger::init().unwrap();
     let white = draw::RGB {
         r: 255,
         g: 255,
@@ -27,19 +31,22 @@ fn main() {
         b: 255,
     };
 
+    let obj = wavefront::Object::new("obj/african_head.obj").unwrap();
+    println!("Loading model {}", obj);
+
     let (width, height) = (128, 128);
     let mut im = draw::Image::new(width, height);
-    im.line(draw::Vec2i { x: 80, y: 40 },
-            draw::Vec2i { x: 13, y: 20 },
+    im.line(math::Vec2i { x: 80, y: 40 },
+            math::Vec2i { x: 13, y: 20 },
             green);
-    im.line(draw::Vec2i { x: 13, y: 20 },
-            draw::Vec2i { x: 80, y: 40 },
+    im.line(math::Vec2i { x: 13, y: 20 },
+            math::Vec2i { x: 80, y: 40 },
             white);
-    im.line(draw::Vec2i { x: 40, y: 80 },
-            draw::Vec2i { x: 20, y: 13 },
+    im.line(math::Vec2i { x: 40, y: 80 },
+            math::Vec2i { x: 20, y: 13 },
             blue);
-    im.line(draw::Vec2i { x: 20, y: 13 },
-            draw::Vec2i { x: 40, y: 80 },
+    im.line(math::Vec2i { x: 20, y: 13 },
+            math::Vec2i { x: 40, y: 80 },
             red);
 
     im.flip_y();
