@@ -8,7 +8,6 @@ use std::io::BufReader;
 use std::path::Path;
 use std::num;
 
-use math::Vec2i;
 use math::Vec3f;
 
 type Vertex = Vec3f;
@@ -16,17 +15,17 @@ type Vertex = Vec3f;
 #[derive(Clone)]
 struct FaceIndex {
     // TODO(wathiede): unpublish these when shader implemented.
-    pub vertexIndices: Vec<usize>,
-    pub texCoordIndices: Vec<usize>,
-    pub normalIndices: Vec<usize>,
+    pub v_idxs: Vec<usize>,
+    pub t_idxs: Vec<usize>,
+    pub n_idxs: Vec<usize>,
 }
 
 impl FaceIndex {
     fn new() -> Self {
         FaceIndex {
-            vertexIndices: Vec::new(),
-            texCoordIndices: Vec::new(),
-            normalIndices: Vec::new(),
+            v_idxs: Vec::new(),
+            t_idxs: Vec::new(),
+            n_idxs: Vec::new(),
         }
     }
 }
@@ -35,9 +34,9 @@ impl fmt::Display for FaceIndex {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         writeln!(f,
                  "{} vert idx {} tex idx {} norm idx",
-                 self.vertexIndices.len(),
-                 self.texCoordIndices.len(),
-                 self.normalIndices.len())
+                 self.v_idxs.len(),
+                 self.t_idxs.len(),
+                 self.n_idxs.len())
     }
 }
 
@@ -181,9 +180,9 @@ impl Object {
                 // Face indices in wavefront object files are 1-based.
                 let idx = try!(c.parse::<usize>()) - 1;
                 match (i, idx) {
-                    (0, idx) => f.vertexIndices.push(idx),
-                    (1, idx) => f.texCoordIndices.push(idx),
-                    (2, idx) => f.normalIndices.push(idx),
+                    (0, idx) => f.v_idxs.push(idx),
+                    (1, idx) => f.t_idxs.push(idx),
+                    (2, idx) => f.n_idxs.push(idx),
                     (_, _) => panic!("Found more than 3 components in face"),
                 }
             }
@@ -232,9 +231,9 @@ impl iter::Iterator for ObjectIter {
         let ref f_idx = self.obj.faces[self.idx];
         // TODO(wathiede): add texcoord/normal values.
         let face = Face {
-            vertices: [self.obj.vertex(f_idx.vertexIndices[0]),
-                       self.obj.vertex(f_idx.vertexIndices[1]),
-                       self.obj.vertex(f_idx.vertexIndices[2])],
+            vertices: [self.obj.vertex(f_idx.v_idxs[0]),
+                       self.obj.vertex(f_idx.v_idxs[1]),
+                       self.obj.vertex(f_idx.v_idxs[2])],
         };
         self.idx += 1;
         Some(face)
@@ -246,7 +245,6 @@ impl iter::IntoIterator for Object {
     type IntoIter = ObjectIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        info!("Creating into_iter");
         ObjectIter {
             obj: self,
             idx: 0,
