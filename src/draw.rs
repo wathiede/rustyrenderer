@@ -14,7 +14,6 @@ impl fmt::Debug for RGB {
     }
 }
 
-
 #[derive(Debug)]
 pub struct Image {
     pub w: usize,
@@ -31,19 +30,30 @@ impl Image {
         };
     }
     pub fn set(&mut self, x: usize, y: usize, c: RGB) {
+        if x >= self.w || y >= self.h {
+            error!("Out of bounds set pixel {},{} size {}x{}",
+                   x,
+                   y,
+                   self.w,
+                   self.h);
+            return;
+        }
         let off = (x + y * self.w) * 3;
         self.buf[off + 0] = c.r;
         self.buf[off + 1] = c.g;
         self.buf[off + 2] = c.b;
     }
+
     pub fn line(&mut self, p0: Vec2i, p1: Vec2i, c: RGB) {
+        debug!("p0 {:?} p1 {:?}", p0, p1);
         // Taller than wide line.
         let steep = (p0.x - p1.x).abs() < (p0.y - p1.y).abs();
         let (x0, y0, x1, y1) = {
             let Vec2i { x: x0, y: y0 } = p0;
             let Vec2i { x: x1, y: y1 } = p1;
             if steep {
-                if x0 > x1 {
+                // Taller than wide, swap x & y.
+                if y0 > y1 {
                     // p0 to the right of p1, swap to we can render left to right.
                     (y1, x1, y0, x0)
                 } else {
@@ -61,30 +71,19 @@ impl Image {
                 }
             }
         };
-        let dx = (x1 - x0) as f64;
-        let dy = (y1 - y0) as f64;
-        let derror2 = dy.abs() * 2.;
-        let mut error2 = 0.;
-        let mut y = y0;
         for x in x0..x1 {
+            let t = (x - x0) as f32 / (x1 - x0) as f32;
+            let y = y0 as f32 * (1. - t) + y1 as f32 * t;
             let (xs, ys) = if steep {
                 (y as usize, x as usize)
             } else {
                 (x as usize, y as usize)
             };
             self.set(xs, ys, c);
-            error2 += derror2;
-            if error2 > dx {
-                if y1 > y0 {
-                    y += 1;
-                } else {
-                    y += -1;
-                };
-                error2 -= dx * 2.;
-            }
         }
 
     }
+
     pub fn flip_y(&mut self) {
         for y in 0..self.h / 2 {
             for x in 0..self.w {

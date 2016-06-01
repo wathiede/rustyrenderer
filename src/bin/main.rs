@@ -1,53 +1,46 @@
+#[macro_use]
+extern crate log;
 extern crate env_logger;
 extern crate imagefmt;
 extern crate rustyrenderer;
 
 use imagefmt::{ColFmt, ColType};
+use rustyrenderer::color;
 use rustyrenderer::draw;
 use rustyrenderer::math;
 use rustyrenderer::wavefront;
 use std::path::Path;
 
+fn line(im: &mut draw::Image, v0: &math::Vec3f, v1: &math::Vec3f, c: draw::RGB) {
+    let (w2, h2) = (im.w as f32 / 2., im.h as f32 / 2.);
+    im.line(math::Vec2i {
+                x: ((v0.x + 1.) * w2) as i32,
+                y: ((v0.y + 1.) * h2) as i32,
+            },
+            math::Vec2i {
+                x: ((v1.x + 1.) * w2) as i32,
+                y: ((v1.y + 1.) * h2) as i32,
+            },
+            c);
+}
+
 fn main() {
     env_logger::init().unwrap();
-    let white = draw::RGB {
-        r: 255,
-        g: 255,
-        b: 255,
-    };
-    let red = draw::RGB {
-        r: 255,
-        g: 0,
-        b: 0,
-    };
-    let green = draw::RGB {
-        r: 0,
-        g: 255,
-        b: 0,
-    };
-    let blue = draw::RGB {
-        r: 0,
-        g: 0,
-        b: 255,
-    };
 
     let obj = wavefront::Object::new("obj/african_head.obj").unwrap();
-    println!("Loading model {}", obj);
+    info!("Loading model {}", obj);
 
-    let (width, height) = (128, 128);
-    let mut im = draw::Image::new(width, height);
-    im.line(math::Vec2i { x: 80, y: 40 },
-            math::Vec2i { x: 13, y: 20 },
-            green);
-    im.line(math::Vec2i { x: 13, y: 20 },
-            math::Vec2i { x: 80, y: 40 },
-            white);
-    im.line(math::Vec2i { x: 40, y: 80 },
-            math::Vec2i { x: 20, y: 13 },
-            blue);
-    im.line(math::Vec2i { x: 20, y: 13 },
-            math::Vec2i { x: 40, y: 80 },
-            red);
+    let (width, height) = (800, 800);
+    let ref mut im = draw::Image::new(width, height);
+    for f in obj {
+        // XXX Ugly, clean this up with shaders.
+        let ref v0 = f.vertices[0];
+        let ref v1 = f.vertices[1];
+        let ref v2 = f.vertices[2];
+        line(im, &v0, &v1, color::WHITE);
+        line(im, &v1, &v2, color::WHITE);
+        line(im, &v2, &v0, color::WHITE);
+    }
 
     im.flip_y();
     let out_path = Path::new("output.png");
