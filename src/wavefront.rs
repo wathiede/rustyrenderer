@@ -32,11 +32,11 @@ impl FaceIndex {
 
 impl fmt::Display for FaceIndex {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        writeln!(f,
-                 "{} vert idx {} tex idx {} norm idx",
-                 self.v_idxs.len(),
-                 self.t_idxs.len(),
-                 self.n_idxs.len())
+        write!(f,
+               "{} vert idx {} tex idx {} norm idx",
+               self.v_idxs.len(),
+               self.t_idxs.len(),
+               self.n_idxs.len())
     }
 }
 
@@ -47,7 +47,7 @@ pub struct Face {
 
 impl fmt::Display for Face {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        writeln!(f, "{:?} vertices", self.vertices)
+        write!(f, "{:?} vertices", self.vertices)
     }
 }
 
@@ -210,10 +210,10 @@ impl Object {
 
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        writeln!(f,
-                 "{} vertices {} faces",
-                 self.vertices.len(),
-                 self.faces.len())
+        write!(f,
+               "{} vertices {} faces",
+               self.vertices.len(),
+               self.faces.len())
     }
 }
 
