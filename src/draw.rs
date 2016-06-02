@@ -1,5 +1,5 @@
+use math;
 use std::fmt;
-use math::Vec2i;
 
 #[derive(Copy,Clone)]
 pub struct RGB {
@@ -44,13 +44,13 @@ impl Image {
         self.buf[off + 2] = c.b;
     }
 
-    pub fn line(&mut self, p0: Vec2i, p1: Vec2i, c: RGB) {
+    pub fn line(&mut self, p0: &math::Vec2i, p1: &math::Vec2i, c: RGB) {
         debug!("p0 {:?} p1 {:?}", p0, p1);
         // Taller than wide line.
         let steep = (p0.x - p1.x).abs() < (p0.y - p1.y).abs();
         let (x0, y0, x1, y1) = {
-            let Vec2i { x: x0, y: y0 } = p0;
-            let Vec2i { x: x1, y: y1 } = p1;
+            let &math::Vec2i { x: x0, y: y0 } = p0;
+            let &math::Vec2i { x: x1, y: y1 } = p1;
             if steep {
                 // Taller than wide, swap x & y.
                 if y0 > y1 {
@@ -82,6 +82,24 @@ impl Image {
             self.set(xs, ys, c);
         }
 
+    }
+
+    pub fn triangle(&mut self, tri: &[math::Vec3f; 3], c: RGB) {
+        let ref v0 = tri[0].to_vec2i();
+        let ref v1 = tri[1].to_vec2i();
+        let ref v2 = tri[2].to_vec2i();
+        use std::cmp::{max, min};
+        let (x_min, x_max) = (min(min(v0.x, v1.x), v2.x), max(max(v0.x, v1.x), v2.x));
+        let (y_min, y_max) = (min(min(v0.y, v1.y), v2.y), max(max(v0.y, v1.y), v2.y));
+        for y in y_min..y_max {
+            for x in x_min..x_max {
+                let bc = math::barycentric(tri, math::Vec2i { x: x, y: y });
+                if bc.x < 0. || bc.y < 0. || bc.z < 0. {
+                    continue;
+                }
+                self.set(x as usize, y as usize, c);
+            }
+        }
     }
 
     pub fn flip_y(&mut self) {

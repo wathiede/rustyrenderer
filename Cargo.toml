@@ -7,3 +7,4 @@ authors = ["Bill Thiede <git@xinu.tv>"]
 env_logger = "*"
 imagefmt = "*"
 log = "*"
+rand = "*"

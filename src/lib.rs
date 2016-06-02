@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate log;
+extern crate rand;
 
 pub mod color;
 pub mod draw;
