@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops;
 
 #[derive(Clone,Debug)]
@@ -23,6 +24,11 @@ impl Vec3f {
     }
 }
 
+impl fmt::Display for Vec3f {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "<{} {} {}>", self.x, self.y, self.z)
+    }
+}
 impl<'a, 'b> ops::Sub<&'b Vec3f> for &'a Vec3f {
     type Output = Vec3f;
 
