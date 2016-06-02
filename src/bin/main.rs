@@ -39,12 +39,13 @@ fn main() {
         math::Vec3f {
             x: ((v.x + 1.) * w2).trunc(),
             y: ((v.y + 1.) * h2).trunc(),
-            z: 0.,
+            z: v.z,
         }
     };
 
     let (width, height) = (800, 800);
     let ref mut im = draw::Image::new(width, height);
+    let ref mut z_buffer = draw::DepthBuffer::new(width, height);
     for f in obj {
         // XXX Ugly, clean this up with shaders.
         let ref v0 = f.vertices[0];
@@ -62,7 +63,7 @@ fn main() {
             g: (alpha * 255.) as u8,
             b: (alpha * 255.) as u8,
         };
-        im.triangle(&screen_tri, c);
+        im.triangle(&screen_tri, c, z_buffer);
     }
 
     im.flip_y();

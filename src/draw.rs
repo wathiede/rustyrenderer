@@ -1,5 +1,6 @@
 use math;
 use std::fmt;
+use std::f32;
 
 #[derive(Copy,Clone)]
 pub struct RGB {
@@ -8,9 +9,35 @@ pub struct RGB {
     pub b: u8,
 }
 
-impl fmt::Debug for RGB {
+impl fmt::Display for RGB {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
+    }
+}
+
+#[derive(Debug)]
+pub struct DepthBuffer {
+    pub w: usize,
+    pub h: usize,
+    pub buf: Vec<f32>,
+}
+
+
+impl DepthBuffer {
+    pub fn new(w: usize, h: usize) -> Self {
+        return DepthBuffer {
+            w: w,
+            h: h,
+            buf: vec![f32::MIN; w*h],
+        };
+    }
+    pub fn set(&mut self, x: usize, y: usize, z: f32) {
+        let off = x + y * self.w;
+        self.buf[off] = z;
+    }
+    pub fn get(&mut self, x: usize, y: usize) -> f32 {
+        let off = x + y * self.w;
+        self.buf[off]
     }
 }
 
@@ -42,6 +69,24 @@ impl Image {
         self.buf[off + 0] = c.r;
         self.buf[off + 1] = c.g;
         self.buf[off + 2] = c.b;
+    }
+    pub fn get(&mut self, x: usize, y: usize) -> RGB {
+        if x >= self.w || y >= self.h {
+            error!("Out of bounds set pixel {},{} size {}x{}",
+                   x,
+                   y,
+                   self.w,
+                   self.h);
+            return RGB { r: 0, g: 0, b: 0 };
+        }
+        let off = (x + y * self.w) * 3;
+        let c = RGB {
+            r: self.buf[off + 0],
+            g: self.buf[off + 1],
+            b: self.buf[off + 2],
+        };
+        info!("Image.get {}", c);
+        c
     }
 
     pub fn line(&mut self, p0: &math::Vec2i, p1: &math::Vec2i, c: RGB) {
@@ -84,7 +129,9 @@ impl Image {
 
     }
 
-    pub fn triangle(&mut self, tri: &[math::Vec3f; 3], c: RGB) {
+    // TODO(wathiede): handle the z_buffer more elegantly, maybe create a type Renderer that wraps
+    // an Image and DepthBuffer and implements triangle?
+    pub fn triangle(&mut self, tri: &[math::Vec3f; 3], c: RGB, z_buffer: &mut DepthBuffer) {
         let ref v0 = tri[0].to_vec2i();
         let ref v1 = tri[1].to_vec2i();
         let ref v2 = tri[2].to_vec2i();
@@ -97,7 +144,14 @@ impl Image {
                 if bc.x < 0. || bc.y < 0. || bc.z < 0. {
                     continue;
                 }
-                self.set(x as usize, y as usize, c);
+                let (sx, sy) = (x as usize, y as usize);
+                let mut z = tri[0].z * bc.x + tri[1].z * bc.y + tri[2].z * bc.z;
+                // info!("t1 {} t2 {} t3 {} bc {}", tri[0].z, tri[1].z, tri[2].z, bc);
+                // info!("Got Z {} < z {}", z_buffer.get(sx, sy), z);
+                if z_buffer.get(sx, sy) < z {
+                    z_buffer.set(sx, sy, z);
+                    self.set(sx, sy, c);
+                }
             }
         }
     }
