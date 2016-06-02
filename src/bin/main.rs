@@ -5,10 +5,7 @@ extern crate imagefmt;
 extern crate rustyrenderer;
 
 use imagefmt::{ColFmt, ColType};
-use rustyrenderer::color;
-use rustyrenderer::draw;
-use rustyrenderer::math;
-use rustyrenderer::wavefront;
+use rustyrenderer::*;
 use std::path::Path;
 
 fn line(im: &mut draw::Image, v0: &math::Vec3f, v1: &math::Vec3f, c: draw::RGB) {
@@ -24,6 +21,12 @@ fn line(im: &mut draw::Image, v0: &math::Vec3f, v1: &math::Vec3f, c: draw::RGB) 
             c);
 }
 
+static LIGHT_DIR: math::Vec3f = math::Vec3f {
+    x: 0.,
+    y: 0.,
+    z: -1.,
+};
+
 fn main() {
     env_logger::init().unwrap();
 
@@ -32,9 +35,10 @@ fn main() {
 
     let model2screen = |im: &draw::Image, v: &math::Vec3f| {
         let (w2, h2) = (im.w as f32 / 2., im.h as f32 / 2.);
+        // .trunc() necessary to prevent cracks.
         math::Vec3f {
-            x: ((v.x + 1.) * w2),
-            y: ((v.y + 1.) * h2),
+            x: ((v.x + 1.) * w2).trunc(),
+            y: ((v.y + 1.) * h2).trunc(),
             z: 0.,
         }
     };
@@ -46,8 +50,19 @@ fn main() {
         let ref v0 = f.vertices[0];
         let ref v1 = f.vertices[1];
         let ref v2 = f.vertices[2];
-        let tri = [model2screen(im, v0), model2screen(im, v1), model2screen(im, v2)];
-        im.triangle(&tri, color::rand());
+        let world_tri = [v0, v1, v2];
+        let screen_tri = [model2screen(im, v0), model2screen(im, v1), model2screen(im, v2)];
+        let n = math::cross(world_tri[2] - world_tri[0], world_tri[1] - world_tri[0]);
+        let alpha = math::dot(n.normalize(), LIGHT_DIR.normalize());
+        if alpha < 0. {
+            continue;
+        }
+        let c = draw::RGB {
+            r: (alpha * 255.) as u8,
+            g: (alpha * 255.) as u8,
+            b: (alpha * 255.) as u8,
+        };
+        im.triangle(&screen_tri, c);
     }
 
     im.flip_y();
