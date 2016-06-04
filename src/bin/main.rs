@@ -8,6 +8,8 @@ use imagefmt::{ColFmt, ColType};
 use rustyrenderer::*;
 use std::path::Path;
 
+// line is useful for debugging
+#[allow(dead_code)]
 fn line(im: &mut draw::Image, v0: &math::Vec3f, v1: &math::Vec3f, c: draw::RGB) {
     let (w2, h2) = (im.w as f32 / 2., im.h as f32 / 2.);
     im.line(&math::Vec2i {

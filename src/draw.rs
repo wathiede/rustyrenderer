@@ -145,9 +145,7 @@ impl Image {
                     continue;
                 }
                 let (sx, sy) = (x as usize, y as usize);
-                let mut z = tri[0].z * bc.x + tri[1].z * bc.y + tri[2].z * bc.z;
-                // info!("t1 {} t2 {} t3 {} bc {}", tri[0].z, tri[1].z, tri[2].z, bc);
-                // info!("Got Z {} < z {}", z_buffer.get(sx, sy), z);
+                let z = tri[0].z * bc.x + tri[1].z * bc.y + tri[2].z * bc.z;
                 if z_buffer.get(sx, sy) < z {
                     z_buffer.set(sx, sy, z);
                     self.set(sx, sy, c);
