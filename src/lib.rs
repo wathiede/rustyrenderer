@@ -6,4 +6,5 @@ extern crate imagefmt;
 pub mod color;
 pub mod draw;
 pub mod math;
+pub mod shader;
 pub mod wavefront;

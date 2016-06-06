@@ -7,7 +7,7 @@ pub struct Vec2i {
     pub y: i32,
 }
 
-#[derive(Clone,Debug)]
+#[derive(Copy,Clone,Debug)]
 pub struct Vec3f {
     pub x: f32,
     pub y: f32,
@@ -22,22 +22,19 @@ impl Vec3f {
             y: self.y as i32,
         }
     }
+
+    pub fn zero() -> Vec3f {
+        Vec3f {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        }
+    }
 }
 
 impl fmt::Display for Vec3f {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "<{} {} {}>", self.x, self.y, self.z)
-    }
-}
-impl<'a, 'b> ops::Sub<&'b Vec3f> for &'a Vec3f {
-    type Output = Vec3f;
-
-    fn sub(self, rhs: &'b Vec3f) -> Vec3f {
-        Vec3f {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-            z: self.z - rhs.z,
-        }
     }
 }
 
@@ -49,6 +46,18 @@ impl ops::Sub for Vec3f {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
             z: self.z - rhs.z,
+        }
+    }
+}
+
+impl ops::Add for Vec3f {
+    type Output = Vec3f;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Vec3f {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
         }
     }
 }

@@ -178,6 +178,10 @@ impl Object {
         self.texcoords[idx].clone()
     }
 
+    // Samples the currently active texture map at uv. Performs nearest neighbor sampling.
+    pub fn sample(&self, uv: Vec3f) -> draw::RGB {
+        self.tex.sample(uv)
+    }
     fn parse_line(&mut self, l: String) -> Result<(), ObjectError> {
         let p: Vec<_> = l.split_whitespace().collect();
         if p.is_empty() {
@@ -261,12 +265,12 @@ impl fmt::Display for Object {
     }
 }
 
-pub struct ObjectIter {
-    obj: Object,
+pub struct ObjectIter<'a> {
+    obj: &'a Object,
     idx: usize,
 }
 
-impl iter::Iterator for ObjectIter {
+impl<'a> iter::Iterator for ObjectIter<'a> {
     type Item = Face;
     fn next(&mut self) -> Option<Self::Item> {
         if self.idx >= self.obj.faces.len() {
@@ -287,9 +291,9 @@ impl iter::Iterator for ObjectIter {
     }
 }
 
-impl iter::IntoIterator for Object {
+impl<'a> iter::IntoIterator for &'a Object {
     type Item = Face;
-    type IntoIter = ObjectIter;
+    type IntoIter = ObjectIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         ObjectIter {
