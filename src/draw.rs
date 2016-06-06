@@ -68,7 +68,10 @@ impl Texture2D {
     // TODO(wathiede): make an Output type that returns Grey / RGB / RGBA as appropriate.
     pub fn sample(&self, uv: math::Vec3f) -> RGB {
         let (w, h) = (self.w as f32, self.h as f32);
-        let (x, y) = (((uv.x * w) % w) as usize, ((uv.y * h) % h) as usize);
+        // XXX Images are 0,0 at the upper left corner, but texture maps are 0,0 at the lower left
+        // corner.  Hack for now.
+        // let (x, y) = (((uv.x * w) % w) as usize, ((uv.y * h) % h) as usize);
+        let (x, y) = (((uv.x * w) % w) as usize, (((1. - uv.y) * h) % h) as usize);
         if x >= self.w || y >= self.h {
             error!("Out of bounds set pixel {},{} size {}x{}",
                    x,
@@ -83,7 +86,7 @@ impl Texture2D {
             g: self.buf[off + 1],
             b: self.buf[off + 2],
         };
-        info!("Image.get {}", c);
+        // info!("Image.get {} {}", uv, c);
         c
     }
 }
