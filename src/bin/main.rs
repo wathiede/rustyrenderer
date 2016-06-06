@@ -32,7 +32,7 @@ static LIGHT_DIR: math::Vec3f = math::Vec3f {
 fn main() {
     env_logger::init().unwrap();
 
-    let obj = wavefront::Object::new("obj/african_head.obj").unwrap();
+    let obj = wavefront::Object::read("obj/african_head.obj").unwrap();
     info!("Loading model {}", obj);
 
     let model2screen = |im: &draw::Image, v: &math::Vec3f| {
@@ -56,16 +56,16 @@ fn main() {
         let world_tri = [v0, v1, v2];
         let screen_tri = [model2screen(im, v0), model2screen(im, v1), model2screen(im, v2)];
         let n = math::cross(world_tri[2] - world_tri[0], world_tri[1] - world_tri[0]);
-        let alpha = math::dot(n.normalize(), LIGHT_DIR.normalize());
-        if alpha < 0. {
+        let a = math::dot(n.normalize(), LIGHT_DIR.normalize());
+        if a < 0. {
             continue;
         }
         let c = draw::RGB {
-            r: (alpha * 255.) as u8,
-            g: (alpha * 255.) as u8,
-            b: (alpha * 255.) as u8,
+            r: (255. * a) as u8,
+            g: (255. * a) as u8,
+            b: (255. * a) as u8,
         };
-        im.triangle(&screen_tri, c, z_buffer);
+        im.triangle(&screen_tri, z_buffer, c);
     }
 
     im.flip_y();

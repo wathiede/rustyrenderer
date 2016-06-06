@@ -8,16 +8,17 @@ use std::io::BufReader;
 use std::path::Path;
 use std::num;
 
+use draw;
+use imagefmt;
 use math::Vec3f;
 
 type Vertex = Vec3f;
 
 #[derive(Clone)]
 struct FaceIndex {
-    // TODO(wathiede): unpublish these when shader implemented.
-    pub v_idxs: Vec<usize>,
-    pub t_idxs: Vec<usize>,
-    pub n_idxs: Vec<usize>,
+    v_idxs: Vec<usize>,
+    t_idxs: Vec<usize>,
+    n_idxs: Vec<usize>,
 }
 
 impl FaceIndex {
@@ -43,6 +44,7 @@ impl fmt::Display for FaceIndex {
 // TODO(wathiede): rename 'Triangle'?
 pub struct Face {
     pub vertices: [Vec3f; 3],
+    pub texcoords: [Vec3f; 3],
 }
 
 impl fmt::Display for Face {
@@ -51,17 +53,13 @@ impl fmt::Display for Face {
     }
 }
 
-pub struct Object {
-    vertices: Vec<Vertex>,
-    faces: Vec<FaceIndex>,
-}
-
 #[derive(Debug)]
 enum ErrorRepr {
     ParseError(String),
     ParseFloatError(num::ParseFloatError),
     ParseIntError(num::ParseIntError),
     IoError(io::Error),
+    ImagefmtError(imagefmt::Error),
 }
 
 #[derive(Debug)]
@@ -75,6 +73,15 @@ impl From<io::Error> for ObjectError {
         ObjectError {
             desc: "IO error",
             cause: ErrorRepr::IoError(err),
+        }
+    }
+}
+
+impl From<imagefmt::Error> for ObjectError {
+    fn from(err: imagefmt::Error) -> ObjectError {
+        ObjectError {
+            desc: "image decode error",
+            cause: ErrorRepr::ImagefmtError(err),
         }
     }
 }
@@ -108,6 +115,7 @@ impl error::Error for ObjectError {
             ErrorRepr::ParseFloatError(ref err) => Some(err as &error::Error),
             ErrorRepr::ParseIntError(ref err) => Some(err as &error::Error),
             ErrorRepr::IoError(ref err) => Some(err as &error::Error),
+            ErrorRepr::ImagefmtError(ref err) => Some(err as &error::Error),
         }
     }
 }
@@ -118,16 +126,33 @@ impl fmt::Display for ObjectError {
     }
 }
 
-impl Object {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, ObjectError> {
-        let f = try!(File::open(path));
-        let f = BufReader::new(f);
+pub struct Object {
+    vertices: Vec<Vertex>,
+    texcoords: Vec<Vertex>,
+    faces: Vec<FaceIndex>,
 
+    // TODO(wathiede): make this more flexible for multiple diffuse textures, and to support normal
+    // and speculator maps.
+    tex: draw::Texture2D,
+}
+
+impl Object {
+    pub fn read<P: AsRef<Path>>(path: P) -> Result<Self, ObjectError> {
+        let p = path.as_ref();
+        let mut pb = p.to_path_buf();
+        pb.set_file_name(p.file_stem().unwrap().to_string_lossy().to_string() + "_diffuse");
+        pb.set_extension("tga");
+        // TODO(wathiede): failure to load texture should be okay.
+        let t = try!(draw::Texture2D::read(pb.as_path()));
         let mut obj = Object {
             vertices: Vec::new(),
+            texcoords: Vec::new(),
             faces: Vec::new(),
+            tex: t,
         };
 
+        let f = try!(File::open(p));
+        let f = BufReader::new(f);
         for line in f.lines() {
             match line {
                 Ok(l) => {
@@ -149,6 +174,10 @@ impl Object {
         self.vertices[idx].clone()
     }
 
+    pub fn texcoord(&self, idx: usize) -> Vec3f {
+        self.texcoords[idx].clone()
+    }
+
     fn parse_line(&mut self, l: String) -> Result<(), ObjectError> {
         let p: Vec<_> = l.split_whitespace().collect();
         if p.is_empty() {
@@ -159,7 +188,7 @@ impl Object {
             "f" => return self.add_face(p),
             "v" => return self.add_vertex(p),
             "vn" => debug!("Vertex normal {:?}", p),
-            "vt" => debug!("Tex {:?}", p),
+            "vt" => return self.add_texcoord(p),
             _ => info!("Unknown line type: {:?}", p),
         }
         Ok(())
@@ -170,7 +199,7 @@ impl Object {
         // TODO(wathiede): add support for quad faces, triangles only for now.
         if p.len() != 4 {
             return Err(ObjectError {
-                desc: "Bad line", /* desc: format!("Got {} vert components, expected 4: {:?}", p.len(), p).to_string(), */
+                desc: "Bad vertex line",
                 cause: ErrorRepr::ParseError(p.join(" ")),
             });
         };
@@ -206,6 +235,21 @@ impl Object {
         self.vertices.push(Vertex { x: x, y: y, z: z });
         Ok(())
     }
+    fn add_texcoord(&mut self, p: Vec<&str>) -> Result<(), ObjectError> {
+        debug!("Texcoord {:?}", p);
+        // "vt <x> <y> <z>"
+        if p.len() != 4 {
+            return Err(ObjectError {
+                desc: "Bad texcoord line",
+                cause: ErrorRepr::ParseError(p.join(" ")),
+            });
+        };
+        let x = try!(p[1].parse::<f32>());
+        let y = try!(p[2].parse::<f32>());
+        let z = try!(p[3].parse::<f32>());
+        self.texcoords.push(Vertex { x: x, y: y, z: z });
+        Ok(())
+    }
 }
 
 impl fmt::Display for Object {
@@ -234,6 +278,9 @@ impl iter::Iterator for ObjectIter {
             vertices: [self.obj.vertex(f_idx.v_idxs[0]),
                        self.obj.vertex(f_idx.v_idxs[1]),
                        self.obj.vertex(f_idx.v_idxs[2])],
+            texcoords: [self.obj.texcoord(f_idx.t_idxs[0]),
+                        self.obj.texcoord(f_idx.t_idxs[1]),
+                        self.obj.texcoord(f_idx.t_idxs[2])],
         };
         self.idx += 1;
         Some(face)

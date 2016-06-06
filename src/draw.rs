@@ -1,6 +1,11 @@
-use math;
-use std::fmt;
 use std::f32;
+use std::fmt;
+use std::path;
+
+use imagefmt::ColFmt;
+use imagefmt;
+
+use math;
 
 #[derive(Copy,Clone)]
 pub struct RGB {
@@ -38,6 +43,48 @@ impl DepthBuffer {
     pub fn get(&mut self, x: usize, y: usize) -> f32 {
         let off = x + y * self.w;
         self.buf[off]
+    }
+}
+
+// let _pic = imagefmt::read("stars.jpg", ColFmt::BGRA).unwrap();
+pub struct Texture2D {
+    pub w: usize,
+    pub h: usize,
+    pub buf: Vec<u8>,
+}
+
+impl Texture2D {
+    pub fn read<P: AsRef<path::Path>>(filepath: P) -> imagefmt::Result<Self> {
+        info!("Reading texture {:?}", filepath.as_ref());
+        let im = try!(imagefmt::read(filepath, ColFmt::RGB));
+        Ok(Texture2D {
+            w: im.w,
+            h: im.h,
+            buf: im.buf,
+        })
+    }
+
+    // TODO(wathiede): make uv a T : Sample that works for 1, 2 & 3D.
+    // TODO(wathiede): make an Output type that returns Grey / RGB / RGBA as appropriate.
+    pub fn sample(&self, uv: math::Vec3f) -> RGB {
+        let (w, h) = (self.w as f32, self.h as f32);
+        let (x, y) = (((uv.x * w) % w) as usize, ((uv.y * h) % h) as usize);
+        if x >= self.w || y >= self.h {
+            error!("Out of bounds set pixel {},{} size {}x{}",
+                   x,
+                   y,
+                   self.w,
+                   self.h);
+            return RGB { r: 0, g: 0, b: 0 };
+        }
+        let off = (x + y * self.w) * 3;
+        let c = RGB {
+            r: self.buf[off + 0],
+            g: self.buf[off + 1],
+            b: self.buf[off + 2],
+        };
+        info!("Image.get {}", c);
+        c
     }
 }
 
@@ -131,7 +178,7 @@ impl Image {
 
     // TODO(wathiede): handle the z_buffer more elegantly, maybe create a type Renderer that wraps
     // an Image and DepthBuffer and implements triangle?
-    pub fn triangle(&mut self, tri: &[math::Vec3f; 3], c: RGB, z_buffer: &mut DepthBuffer) {
+    pub fn triangle(&mut self, tri: &[math::Vec3f; 3], z_buffer: &mut DepthBuffer, c: RGB) {
         let ref v0 = tri[0].to_vec2i();
         let ref v1 = tri[1].to_vec2i();
         let ref v2 = tri[2].to_vec2i();
