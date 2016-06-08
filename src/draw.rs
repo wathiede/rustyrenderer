@@ -37,10 +37,28 @@ impl DepthBuffer {
         };
     }
     pub fn set(&mut self, x: usize, y: usize, z: f32) {
+        if x >= self.w || y >= self.h {
+            // error!("Out of bounds set depth {},{} size {}x{}",
+            // x,
+            // y,
+            // self.w,
+            // self.h);
+            //
+            return;
+        }
         let off = x + y * self.w;
         self.buf[off] = z;
     }
     pub fn get(&mut self, x: usize, y: usize) -> f32 {
+        if x >= self.w || y >= self.h {
+            // error!("Out of bounds get depth {},{} size {}x{}",
+            // x,
+            // y,
+            // self.w,
+            // self.h);
+            //
+            return 0.;
+        }
         let off = x + y * self.w;
         self.buf[off]
     }
@@ -190,7 +208,12 @@ impl Image {
         let (y_min, y_max) = (min(min(v0.y, v1.y), v2.y), max(max(v0.y, v1.y), v2.y));
         for y in y_min..y_max {
             for x in x_min..x_max {
-                let bc = math::barycentric(tri, math::Vec2i { x: x, y: y });
+                let bc = math::barycentric(tri,
+                                           math::Vec3f {
+                                               x: x as f32,
+                                               y: y as f32,
+                                               z: 0.,
+                                           });
                 if bc.x < 0. || bc.y < 0. || bc.z < 0. {
                     continue;
                 }
