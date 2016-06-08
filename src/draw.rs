@@ -38,12 +38,12 @@ impl DepthBuffer {
     }
     pub fn set(&mut self, x: usize, y: usize, z: f32) {
         if x >= self.w || y >= self.h {
-            // error!("Out of bounds set depth {},{} size {}x{}",
-            // x,
-            // y,
-            // self.w,
-            // self.h);
-            //
+            error!("Out of bounds set depth {},{} size {}x{}",
+                   x,
+                   y,
+                   self.w,
+                   self.h);
+
             return;
         }
         let off = x + y * self.w;
@@ -51,12 +51,12 @@ impl DepthBuffer {
     }
     pub fn get(&mut self, x: usize, y: usize) -> f32 {
         if x >= self.w || y >= self.h {
-            // error!("Out of bounds get depth {},{} size {}x{}",
-            // x,
-            // y,
-            // self.w,
-            // self.h);
-            //
+            error!("Out of bounds get depth {},{} size {}x{}",
+                   x,
+                   y,
+                   self.w,
+                   self.h);
+
             return 0.;
         }
         let off = x + y * self.w;
