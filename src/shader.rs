@@ -1,4 +1,3 @@
-use color;
 use draw;
 use math;
 use wavefront;
@@ -70,7 +69,7 @@ impl World {
 
 pub trait Shader {
     // vertex sets per-face shader state in preparation for fragment evaluation.
-    fn vertex(&mut self, world: &World, f: &wavefront::Face);
+    fn vertex(&mut self, world: &World, f: &wavefront::Face) -> [math::Vec3f; 3];
     // fragment evaluates the color of a pixel fragment. It returns None if the pixel should be
     // discarded, i.e. culled as a back facing polygon.
     fn fragment(&self, world: &World, bc: math::Vec3f) -> Option<draw::RGB>;
@@ -91,8 +90,6 @@ pub struct FlatShader<'a> {
     uvs: [math::Vec3f; 3],
     // Normal UV at fragment.
     ns: [math::Vec3f; 3],
-    // screen space vertices of the face.
-    screen_verts: [math::Vec3f; 3],
 }
 
 impl<'a> FlatShader<'a> {
@@ -107,27 +104,22 @@ impl<'a> FlatShader<'a> {
             intensity: 1.,
             uvs: [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()],
             ns: [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()],
-            screen_verts: [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()],
         }
     }
 }
 
 impl<'a> Shader for FlatShader<'a> {
-    fn vertex(&mut self, world: &World, f: &wavefront::Face) {
-
-        let mut world_tri = [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()];
-        let mut intensity = 0.;
+    fn vertex(&mut self, world: &World, f: &wavefront::Face) -> [math::Vec3f; 3] {
+        // screen space vertices of the face.
+        let mut screen_verts = [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()];
+        self.intensity = 0.;
         for i in 0..3 {
-            world_tri[i] = f.vertices[i];
-            self.screen_verts[i] = world.m.transform(f.vertices[i]);
-            debug!("v {} -> {}", f.vertices[i], self.screen_verts[i]);
-            // self.screen_verts[i] = self.model2screen(f.vertices[i]);
+            self.intensity += math::dot(f.normals[i], world.light_dir.normalize()) / 3.;
+            self.ns[i] = f.normals[i];
             self.uvs[i] = f.texcoords[i];
-            let n = f.normals[i];
-            intensity += math::dot(n, world.light_dir.normalize());
-            self.ns[i] = n;
+            screen_verts[i] = world.m.transform(f.vertices[i]);
         }
-        self.intensity = intensity / 3.;
+        screen_verts
     }
 
     fn fragment(&self, _world: &World, bc: math::Vec3f) -> Option<draw::RGB> {
@@ -136,8 +128,6 @@ impl<'a> Shader for FlatShader<'a> {
         }
         let uv = self.uvs[0].scale(bc.x) + self.uvs[1].scale(bc.y) + self.uvs[2].scale(bc.z);
         let c = self.obj.sample(uv);
-        // TODO(wathiede): perform texture lookup and set color appropriately.
-
         Some(draw::RGB {
             r: (c.r as f32 * self.intensity) as u8,
             g: (c.g as f32 * self.intensity) as u8,
@@ -146,27 +136,8 @@ impl<'a> Shader for FlatShader<'a> {
     }
 
     fn draw_face(&mut self, world: &World, f: &wavefront::Face) {
-        self.vertex(world, f);
-
-        let ref tri = self.screen_verts;
-        let ref v0 = tri[0].to_vec2i();
-        let ref v1 = tri[1].to_vec2i();
-        let ref v2 = tri[2].to_vec2i();
-
-        if false {
-            self.im.line(v0, v1, color::RED);
-            self.im.line(v0, v2, color::GREEN);
-            self.im.line(v1, v2, color::BLUE);
-        }
-
-        use std::cmp::{max, min};
-        let (x_min, x_max) = (min(min(v0.x, v1.x), v2.x), max(max(v0.x, v1.x), v2.x));
-        let (y_min, y_max) = (min(min(v0.y, v1.y), v2.y), max(max(v0.y, v1.y), v2.y));
-        debug!("Tri BBox x {},{} y {},{}", x_min, x_max, y_min, y_max);
-
-        let mut debug_drawn = 0;
-        let mut debug_discard = 0;
-        let mut debug_outside = 0;
+        let ref tri = self.vertex(world, f);
+        let (x_min, x_max, y_min, y_max) = bbox(tri);
         for y in y_min..y_max + 1 {
             for x in x_min..x_max + 1 {
                 let bc = math::barycentric(tri,
@@ -177,7 +148,6 @@ impl<'a> Shader for FlatShader<'a> {
                                            });
                 if bc.x < 0. || bc.y < 0. || bc.z < 0. {
                     // Outside the triangle.
-                    debug_outside += 1;
                     continue;
                 }
 
@@ -189,19 +159,24 @@ impl<'a> Shader for FlatShader<'a> {
                         Some(c) => {
                             self.z_buffer.set(sx, sy, z);
                             self.im.set(sx, sy, c);
-                            debug_drawn += 1;
                         }
                         // Fragment says to discard, don't update z-buffer.
-                        None => debug_discard += 1,
+                        None => {}
                     }
                 }
             }
         }
-        debug!("DEBUG discarded {} outside {} drawn {}",
-              debug_discard,
-              debug_outside,
-              debug_drawn,
-              );
-        // panic!();
     }
+}
+
+fn bbox(tri: &[math::Vec3f; 3]) -> (i32, i32, i32, i32) {
+    let ref v0 = tri[0].to_vec2i();
+    let ref v1 = tri[1].to_vec2i();
+    let ref v2 = tri[2].to_vec2i();
+
+    use std::cmp::{max, min};
+    let (x_min, x_max) = (min(min(v0.x, v1.x), v2.x), max(max(v0.x, v1.x), v2.x));
+    let (y_min, y_max) = (min(min(v0.y, v1.y), v2.y), max(max(v0.y, v1.y), v2.y));
+    debug!("Tri BBox x {},{} y {},{}", x_min, x_max, y_min, y_max);
+    (x_min, x_max, y_min, y_max)
 }
