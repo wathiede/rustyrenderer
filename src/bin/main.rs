@@ -52,7 +52,7 @@ fn main() {
     info!("projection: {}", world.projection);
     info!("model_view: {}", world.model_view);
     {
-        let mut shdr = shader::FlatShader::new(&obj, &mut im, &mut z_buffer);
+        let mut shdr = shader::GouraudShader::new(&obj, &mut im, &mut z_buffer);
         for f in &obj {
             shader::Shader::draw_face(&mut shdr, &world, &f);
         }

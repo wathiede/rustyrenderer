@@ -4,6 +4,18 @@ use wavefront;
 
 static DEPTH_RESOLUTION: f32 = 65_536.;
 
+fn bbox(tri: &[math::Vec3f; 3]) -> (i32, i32, i32, i32) {
+    let ref v0 = tri[0].to_vec2i();
+    let ref v1 = tri[1].to_vec2i();
+    let ref v2 = tri[2].to_vec2i();
+
+    use std::cmp::{max, min};
+    let (x_min, x_max) = (min(min(v0.x, v1.x), v2.x), max(max(v0.x, v1.x), v2.x));
+    let (y_min, y_max) = (min(min(v0.y, v1.y), v2.y), max(max(v0.y, v1.y), v2.y));
+    debug!("Tri BBox x {},{} y {},{}", x_min, x_max, y_min, y_max);
+    (x_min, x_max, y_min, y_max)
+}
+
 pub struct World {
     light_dir: math::Vec3f,
     pub model_view: math::Matrix,
@@ -136,6 +148,7 @@ impl<'a> Shader for FlatShader<'a> {
     }
 
     fn draw_face(&mut self, world: &World, f: &wavefront::Face) {
+        // Screen space triangle.
         let ref tri = self.vertex(world, f);
         let (x_min, x_max, y_min, y_max) = bbox(tri);
         for y in y_min..y_max + 1 {
@@ -169,14 +182,92 @@ impl<'a> Shader for FlatShader<'a> {
     }
 }
 
-fn bbox(tri: &[math::Vec3f; 3]) -> (i32, i32, i32, i32) {
-    let ref v0 = tri[0].to_vec2i();
-    let ref v1 = tri[1].to_vec2i();
-    let ref v2 = tri[2].to_vec2i();
+pub struct GouraudShader<'a> {
+    // Uniform values.
+    obj: &'a wavefront::Object,
+    im: &'a mut draw::Image,
+    z_buffer: &'a mut draw::DepthBuffer,
 
-    use std::cmp::{max, min};
-    let (x_min, x_max) = (min(min(v0.x, v1.x), v2.x), max(max(v0.x, v1.x), v2.x));
-    let (y_min, y_max) = (min(min(v0.y, v1.y), v2.y), max(max(v0.y, v1.y), v2.y));
-    debug!("Tri BBox x {},{} y {},{}", x_min, x_max, y_min, y_max);
-    (x_min, x_max, y_min, y_max)
+    // Varying values, written by vertex shader, read by fragment shader
+    // Texture UV at fragment.
+    uvs: [math::Vec3f; 3],
+    // Normal UV at fragment.
+    ns: [math::Vec3f; 3],
+}
+
+impl<'a> GouraudShader<'a> {
+    pub fn new(obj: &'a wavefront::Object,
+               im: &'a mut draw::Image,
+               z_buffer: &'a mut draw::DepthBuffer)
+               -> Self {
+        GouraudShader {
+            obj: obj,
+            im: im,
+            z_buffer: z_buffer,
+            uvs: [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()],
+            ns: [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()],
+        }
+    }
+}
+
+impl<'a> Shader for GouraudShader<'a> {
+    fn vertex(&mut self, world: &World, f: &wavefront::Face) -> [math::Vec3f; 3] {
+        // screen space vertices of the face.
+        let mut screen_verts = [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()];
+        for i in 0..3 {
+            self.ns[i] = f.normals[i];
+            self.uvs[i] = f.texcoords[i];
+            screen_verts[i] = world.m.transform(f.vertices[i]);
+        }
+        screen_verts
+    }
+
+    fn fragment(&self, world: &World, bc: math::Vec3f) -> Option<draw::RGB> {
+        let n = self.ns[0].scale(bc.x) + self.ns[1].scale(bc.y) + self.ns[2].scale(bc.z);
+        let intensity = math::dot(n, world.light_dir.normalize());
+        if intensity < 0. {
+            return None;
+        }
+        let uv = self.uvs[0].scale(bc.x) + self.uvs[1].scale(bc.y) + self.uvs[2].scale(bc.z);
+        let c = self.obj.sample(uv);
+        Some(draw::RGB {
+            r: (c.r as f32 * intensity) as u8,
+            g: (c.g as f32 * intensity) as u8,
+            b: (c.b as f32 * intensity) as u8,
+        })
+    }
+
+    fn draw_face(&mut self, world: &World, f: &wavefront::Face) {
+        // Screen space triangle.
+        let ref tri = self.vertex(world, f);
+        let (x_min, x_max, y_min, y_max) = bbox(tri);
+        for y in y_min..y_max + 1 {
+            for x in x_min..x_max + 1 {
+                let bc = math::barycentric(tri,
+                                           math::Vec3f {
+                                               x: x as f32,
+                                               y: y as f32,
+                                               z: 0.,
+                                           });
+                if bc.x < 0. || bc.y < 0. || bc.z < 0. {
+                    // Outside the triangle.
+                    continue;
+                }
+
+                let (sx, sy) = (x as usize, y as usize);
+                let z = tri[0].z * bc.x + tri[1].z * bc.y + tri[2].z * bc.z;
+                // Z test passes, draw pixel
+                if self.z_buffer.get(sx, sy) < z {
+                    match self.fragment(world, bc) {
+                        Some(c) => {
+                            self.z_buffer.set(sx, sy, z);
+                            self.im.set(sx, sy, c);
+                        }
+                        // Fragment says to discard, don't update z-buffer.
+                        None => {}
+                    }
+                }
+            }
+        }
+    }
 }
