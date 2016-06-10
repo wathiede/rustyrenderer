@@ -45,6 +45,7 @@ impl fmt::Display for FaceIndex {
 pub struct Face {
     pub vertices: [Vec3f; 3],
     pub texcoords: [Vec3f; 3],
+    pub normals: [Vec3f; 3],
 }
 
 impl fmt::Display for Face {
@@ -129,6 +130,7 @@ impl fmt::Display for ObjectError {
 pub struct Object {
     vertices: Vec<Vertex>,
     texcoords: Vec<Vertex>,
+    normals: Vec<Vertex>,
     faces: Vec<FaceIndex>,
 
     // TODO(wathiede): make this more flexible for multiple diffuse textures, and to support normal
@@ -147,6 +149,7 @@ impl Object {
         let mut obj = Object {
             vertices: Vec::new(),
             texcoords: Vec::new(),
+            normals: Vec::new(),
             faces: Vec::new(),
             tex: t,
         };
@@ -178,6 +181,10 @@ impl Object {
         self.texcoords[idx].clone()
     }
 
+    pub fn normal(&self, idx: usize) -> Vec3f {
+        self.normals[idx].clone()
+    }
+
     // Samples the currently active texture map at uv. Performs nearest neighbor sampling.
     pub fn sample(&self, uv: Vec3f) -> draw::RGB {
         self.tex.sample(uv)
@@ -191,7 +198,7 @@ impl Object {
             "#" => info!("Comment {:?}", p),
             "f" => return self.add_face(p),
             "v" => return self.add_vertex(p),
-            "vn" => debug!("Vertex normal {:?}", p),
+            "vn" => return self.add_normal(p),
             "vt" => return self.add_texcoord(p),
             _ => info!("Unknown line type: {:?}", p),
         }
@@ -224,9 +231,7 @@ impl Object {
         Ok(())
     }
 
-    fn add_vertex(&mut self, p: Vec<&str>) -> Result<(), ObjectError> {
-        debug!("Vertex {:?}", p);
-        // "v <x> <y> <z>"
+    fn parse_vec3f(p: Vec<&str>) -> Result<Vec3f, ObjectError> {
         if p.len() != 4 {
             return Err(ObjectError {
                 desc: "Bad line", /* desc: format!("Got {} vert components, expected 4: {:?}", p.len(), p).to_string(), */
@@ -236,22 +241,28 @@ impl Object {
         let x = try!(p[1].parse::<f32>());
         let y = try!(p[2].parse::<f32>());
         let z = try!(p[3].parse::<f32>());
-        self.vertices.push(Vertex { x: x, y: y, z: z });
+        Ok(Vertex { x: x, y: y, z: z })
+    }
+
+    fn add_vertex(&mut self, p: Vec<&str>) -> Result<(), ObjectError> {
+        debug!("Vertex {:?}", p);
+        // "v <x> <y> <z>"
+        let v = try!(Object::parse_vec3f(p));
+        self.vertices.push(v);
         Ok(())
     }
     fn add_texcoord(&mut self, p: Vec<&str>) -> Result<(), ObjectError> {
         debug!("Texcoord {:?}", p);
         // "vt <x> <y> <z>"
-        if p.len() != 4 {
-            return Err(ObjectError {
-                desc: "Bad texcoord line",
-                cause: ErrorRepr::ParseError(p.join(" ")),
-            });
-        };
-        let x = try!(p[1].parse::<f32>());
-        let y = try!(p[2].parse::<f32>());
-        let z = try!(p[3].parse::<f32>());
-        self.texcoords.push(Vertex { x: x, y: y, z: z });
+        let v = try!(Object::parse_vec3f(p));
+        self.texcoords.push(v);
+        Ok(())
+    }
+    fn add_normal(&mut self, p: Vec<&str>) -> Result<(), ObjectError> {
+        debug!("Normal {:?}", p);
+        // "vn <x> <y> <z>"
+        let v = try!(Object::parse_vec3f(p));
+        self.normals.push(v);
         Ok(())
     }
 }
@@ -285,6 +296,9 @@ impl<'a> iter::Iterator for ObjectIter<'a> {
             texcoords: [self.obj.texcoord(f_idx.t_idxs[0]),
                         self.obj.texcoord(f_idx.t_idxs[1]),
                         self.obj.texcoord(f_idx.t_idxs[2])],
+            normals: [self.obj.normal(f_idx.n_idxs[0]),
+                      self.obj.normal(f_idx.n_idxs[1]),
+                      self.obj.normal(f_idx.n_idxs[2])],
         };
         self.idx += 1;
         Some(face)

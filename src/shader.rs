@@ -113,6 +113,7 @@ impl<'a> Shader for FlatShader<'a> {
         let mut world_tri = [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()];
         // TODO(wathiede): move this to compute once.
         let m = world.viewport.clone() * world.projection.clone() * world.model_view.clone();
+        let mut intensity = 0.;
         for i in 0..3 {
             world_tri[i] = f.vertices[i];
             debug!("m {}", m);
@@ -120,15 +121,11 @@ impl<'a> Shader for FlatShader<'a> {
             debug!("v {} -> {}", f.vertices[i], self.screen_verts[i]);
             // self.screen_verts[i] = self.model2screen(f.vertices[i]);
             self.uvs[i] = f.texcoords[i];
-        }
-
-        // TODO(wathiede): replace this with per-vertex normals from model, falling back to
-        // computing them as face normals.  That would be gouruad shading
-        let n = math::cross(world_tri[1] - world_tri[0], world_tri[2] - world_tri[0]).normalize();
-        for i in 0..3 {
+            let n = f.normals[i];
+            intensity += math::dot(n, world.light_dir.normalize());
             self.ns[i] = n;
         }
-        self.intensity = math::dot(n.normalize(), world.light_dir.normalize());
+        self.intensity = intensity / 3.;
     }
 
     fn fragment(&self, _world: &World, bc: math::Vec3f) -> Option<draw::RGB> {
