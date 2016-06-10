@@ -189,7 +189,8 @@ mod tests {
 }
 
 // Matrix is a 4x4 matrix type.  It accessed using the index trait, i.e. `m[(r, c)]`.
-#[derive(Clone,Debug)]
+// TODO(wathiede): reevaluate use of Copy & Clone.
+#[derive(Copy,Clone,Debug)]
 pub struct Matrix {
     v: [[f32; 4]; 4],
 }

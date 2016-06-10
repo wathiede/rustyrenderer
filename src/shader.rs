@@ -10,6 +10,8 @@ pub struct World {
     pub model_view: math::Matrix,
     pub viewport: math::Matrix,
     pub projection: math::Matrix,
+    // Viewport * Project * ModelView
+    pub m: math::Matrix,
 }
 
 impl World {
@@ -23,6 +25,7 @@ impl World {
             model_view: math::Matrix::identity(),
             viewport: math::Matrix::identity(),
             projection: math::Matrix::identity(),
+            m: math::Matrix::identity(),
         }
     }
 
@@ -44,6 +47,7 @@ impl World {
         }
         self.model_view = m_inv * t_r;
         self.projection[(3, 2)] = -1. / (eye - center).length();
+        self.m = self.viewport * self.projection * self.model_view;
     }
 
     pub fn set_viewport(&mut self, x_off: usize, y_off: usize, width: usize, height: usize) {
@@ -60,6 +64,7 @@ impl World {
         m[(1, 1)] = h / 2.;
         m[(2, 2)] = DEPTH_RESOLUTION / 2.;
         self.viewport = m;
+        self.m = self.viewport * self.projection * self.model_view;
     }
 }
 
@@ -111,13 +116,10 @@ impl<'a> Shader for FlatShader<'a> {
     fn vertex(&mut self, world: &World, f: &wavefront::Face) {
 
         let mut world_tri = [math::Vec3f::zero(), math::Vec3f::zero(), math::Vec3f::zero()];
-        // TODO(wathiede): move this to compute once.
-        let m = world.viewport.clone() * world.projection.clone() * world.model_view.clone();
         let mut intensity = 0.;
         for i in 0..3 {
             world_tri[i] = f.vertices[i];
-            debug!("m {}", m);
-            self.screen_verts[i] = m.transform(f.vertices[i]);
+            self.screen_verts[i] = world.m.transform(f.vertices[i]);
             debug!("v {} -> {}", f.vertices[i], self.screen_verts[i]);
             // self.screen_verts[i] = self.model2screen(f.vertices[i]);
             self.uvs[i] = f.texcoords[i];
