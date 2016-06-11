@@ -136,6 +136,7 @@ pub struct Object {
     // TODO(wathiede): make this more flexible for multiple diffuse textures, and to support normal
     // and speculator maps.
     tex: draw::Texture2D,
+    normal_map: draw::Texture2D,
 }
 
 impl Object {
@@ -145,13 +146,18 @@ impl Object {
         pb.set_file_name(p.file_stem().unwrap().to_string_lossy().to_string() + "_diffuse");
         pb.set_extension("tga");
         // TODO(wathiede): failure to load texture should be okay.
-        let t = try!(draw::Texture2D::read(pb.as_path()));
+        let tex = try!(draw::Texture2D::read(pb.as_path()));
+
+        pb.set_file_name(p.file_stem().unwrap().to_string_lossy().to_string() + "_nm_tangent");
+        pb.set_extension("tga");
+        let normal_map = try!(draw::Texture2D::read(pb.as_path()));
         let mut obj = Object {
             vertices: Vec::new(),
             texcoords: Vec::new(),
             normals: Vec::new(),
             faces: Vec::new(),
-            tex: t,
+            tex: tex,
+            normal_map: normal_map,
         };
 
         let f = try!(File::open(p));
@@ -186,8 +192,16 @@ impl Object {
     }
 
     // Samples the currently active texture map at uv. Performs nearest neighbor sampling.
-    pub fn sample(&self, uv: Vec3f) -> draw::RGB {
+    pub fn diffuse_sample(&self, uv: Vec3f) -> draw::RGB {
         self.tex.sample(uv)
+    }
+    pub fn normal_sample(&self, uv: Vec3f) -> Vec3f {
+        let rgb = self.normal_map.sample(uv);
+        Vec3f {
+            x: rgb.b as f32 / 255. * 2. - 1.,
+            y: rgb.g as f32 / 255. * 2. - 1.,
+            z: rgb.r as f32 / 255. * 2. - 1.,
+        }
     }
     fn parse_line(&mut self, l: String) -> Result<(), ObjectError> {
         let p: Vec<_> = l.split_whitespace().collect();

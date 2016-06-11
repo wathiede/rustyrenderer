@@ -22,7 +22,9 @@ pub struct World {
     pub viewport: math::Matrix,
     pub projection: math::Matrix,
     // Viewport * Project * ModelView
+    pub vp_p_mv: math::Matrix,
     pub m: math::Matrix,
+    pub mit: math::Matrix,
 }
 
 impl World {
@@ -36,12 +38,20 @@ impl World {
             model_view: math::Matrix::identity(),
             viewport: math::Matrix::identity(),
             projection: math::Matrix::identity(),
+            vp_p_mv: math::Matrix::identity(),
             m: math::Matrix::identity(),
+            mit: math::Matrix::identity(),
         }
     }
 
     pub fn set_light_dir(&mut self, light_dir: math::Vec3f) {
         self.light_dir = light_dir;
+    }
+
+    fn rebuild_matrices(&mut self) {
+        self.vp_p_mv = self.viewport * self.projection * self.model_view;
+        self.m = self.projection * self.model_view;
+        self.mit = self.m.inverse().unwrap().transpose();
     }
 
     pub fn look_at(&mut self, eye: math::Vec3f, center: math::Vec3f, up: math::Vec3f) {
@@ -58,7 +68,7 @@ impl World {
         }
         self.model_view = m_inv * t_r;
         self.projection[(3, 2)] = -1. / (eye - center).length();
-        self.m = self.viewport * self.projection * self.model_view;
+        self.rebuild_matrices()
     }
 
     pub fn set_viewport(&mut self, x_off: usize, y_off: usize, width: usize, height: usize) {
@@ -66,16 +76,16 @@ impl World {
         let y = y_off as f32;
         let w = width as f32;
         let h = height as f32;
-        let mut m = math::Matrix::identity();
-        m[(0, 3)] = x + w / 2.;
-        m[(1, 3)] = y + h / 2.;
-        m[(2, 3)] = DEPTH_RESOLUTION / 2.;
+        let mut vp = math::Matrix::identity();
+        vp[(0, 3)] = x + w / 2.;
+        vp[(1, 3)] = y + h / 2.;
+        vp[(2, 3)] = DEPTH_RESOLUTION / 2.;
 
-        m[(0, 0)] = w / 2.;
-        m[(1, 1)] = h / 2.;
-        m[(2, 2)] = DEPTH_RESOLUTION / 2.;
-        self.viewport = m;
-        self.m = self.viewport * self.projection * self.model_view;
+        vp[(0, 0)] = w / 2.;
+        vp[(1, 1)] = h / 2.;
+        vp[(2, 2)] = DEPTH_RESOLUTION / 2.;
+        self.viewport = vp;
+        self.rebuild_matrices()
     }
 }
 
@@ -129,7 +139,7 @@ impl<'a> Shader for FlatShader<'a> {
             self.intensity += math::dot(f.normals[i], world.light_dir.normalize()) / 3.;
             self.ns[i] = f.normals[i];
             self.uvs[i] = f.texcoords[i];
-            screen_verts[i] = world.m.transform(f.vertices[i]);
+            screen_verts[i] = world.vp_p_mv.transform(f.vertices[i]);
         }
         screen_verts
     }
@@ -139,7 +149,7 @@ impl<'a> Shader for FlatShader<'a> {
             return None;
         }
         let uv = self.uvs[0].scale(bc.x) + self.uvs[1].scale(bc.y) + self.uvs[2].scale(bc.z);
-        let c = self.obj.sample(uv);
+        let c = self.obj.diffuse_sample(uv);
         Some(draw::RGB {
             r: (c.r as f32 * self.intensity) as u8,
             g: (c.g as f32 * self.intensity) as u8,
@@ -217,24 +227,27 @@ impl<'a> Shader for GouraudShader<'a> {
         for i in 0..3 {
             self.ns[i] = f.normals[i];
             self.uvs[i] = f.texcoords[i];
-            screen_verts[i] = world.m.transform(f.vertices[i]);
+            screen_verts[i] = world.vp_p_mv.transform(f.vertices[i]);
         }
         screen_verts
     }
 
     fn fragment(&self, world: &World, bc: math::Vec3f) -> Option<draw::RGB> {
-        let n = self.ns[0].scale(bc.x) + self.ns[1].scale(bc.y) + self.ns[2].scale(bc.z);
-        let intensity = math::dot(n, world.light_dir.normalize());
-        if intensity < 0. {
-            return None;
-        }
         let uv = self.uvs[0].scale(bc.x) + self.uvs[1].scale(bc.y) + self.uvs[2].scale(bc.z);
-        let c = self.obj.sample(uv);
+        let c = self.obj.diffuse_sample(uv);
+        let n = self.obj.normal_sample(uv);
+        let n = world.mit.transform(n).normalize();
+        let l = world.m.transform(world.light_dir).normalize();
+        let mut intensity = math::dot(n, l);
+        if intensity < 0. {
+            intensity = 0.;
+        }
         Some(draw::RGB {
             r: (c.r as f32 * intensity) as u8,
             g: (c.g as f32 * intensity) as u8,
             b: (c.b as f32 * intensity) as u8,
         })
+
     }
 
     fn draw_face(&mut self, world: &World, f: &wavefront::Face) {

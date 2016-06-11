@@ -214,6 +214,59 @@ impl Matrix {
         }
     }
 
+    // Borrowed from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteMatrix4x4.h
+    pub fn inverse(&self) -> Option<Matrix> {
+        let M = |r: usize, c: usize| self[(r, c)];
+        let a0 = M(0, 0) * M(1, 1) - M(0, 1) * M(1, 0);
+        let a1 = M(0, 0) * M(1, 2) - M(0, 2) * M(1, 0);
+        let a2 = M(0, 0) * M(1, 3) - M(0, 3) * M(1, 0);
+        let a3 = M(0, 1) * M(1, 2) - M(0, 2) * M(1, 1);
+        let a4 = M(0, 1) * M(1, 3) - M(0, 3) * M(1, 1);
+        let a5 = M(0, 2) * M(1, 3) - M(0, 3) * M(1, 2);
+        let b0 = M(2, 0) * M(3, 1) - M(2, 1) * M(3, 0);
+        let b1 = M(2, 0) * M(3, 2) - M(2, 2) * M(3, 0);
+        let b2 = M(2, 0) * M(3, 3) - M(2, 3) * M(3, 0);
+        let b3 = M(2, 1) * M(3, 2) - M(2, 2) * M(3, 1);
+        let b4 = M(2, 1) * M(3, 3) - M(2, 3) * M(3, 1);
+        let b5 = M(2, 2) * M(3, 3) - M(2, 3) * M(3, 2);
+        let det = a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
+        if det == 0. {
+            return None;
+        }
+
+        let inv_det = 1. / det;
+        Some(Matrix {
+            v: [[(M(1, 1) * b5 - M(1, 2) * b4 + M(1, 3) * b3) * inv_det,
+                 (-M(0, 1) * b5 + M(0, 2) * b4 - M(0, 3) * b3) * inv_det,
+                 (M(3, 1) * a5 - M(3, 2) * a4 + M(3, 3) * a3) * inv_det,
+                 (-M(2, 1) * a5 + M(2, 2) * a4 - M(2, 3) * a3) * inv_det],
+
+                [(-M(1, 0) * b5 + M(1, 2) * b2 - M(1, 3) * b1) * inv_det,
+                 (M(0, 0) * b5 - M(0, 2) * b2 + M(0, 3) * b1) * inv_det,
+                 (-M(3, 0) * a5 + M(3, 2) * a2 - M(3, 3) * a1) * inv_det,
+                 (M(2, 0) * a5 - M(2, 2) * a2 + M(2, 3) * a1) * inv_det],
+
+                [(M(1, 0) * b4 - M(1, 1) * b2 + M(1, 3) * b0) * inv_det,
+                 (-M(0, 0) * b4 + M(0, 1) * b2 - M(0, 3) * b0) * inv_det,
+                 (M(3, 0) * a4 - M(3, 1) * a2 + M(3, 3) * a0) * inv_det,
+                 (-M(2, 0) * a4 + M(2, 1) * a2 - M(2, 3) * a0) * inv_det],
+
+                [(-M(1, 0) * b3 + M(1, 1) * b1 - M(1, 2) * b0) * inv_det,
+                 (M(0, 0) * b3 - M(0, 1) * b1 + M(0, 2) * b0) * inv_det,
+                 (-M(3, 0) * a3 + M(3, 1) * a1 - M(3, 2) * a0) * inv_det,
+                 (M(2, 0) * a3 - M(2, 1) * a1 + M(2, 2) * a0) * inv_det]],
+        })
+    }
+    pub fn transpose(&self) -> Matrix {
+        let mut m = Matrix::new();
+        for r in 0..4 {
+            for c in 0..4 {
+                m[(c, r)] = self[(r, c)]
+            }
+        }
+        m
+    }
+
     // TODO(wathiede): make this an implementation of ops::Mul somehow.
     pub fn transform(&self, rhs: Vec3f) -> Vec3f {
         let inp = [rhs.x, rhs.y, rhs.z, 1.];
