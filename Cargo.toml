@@ -8,3 +8,4 @@ env_logger = "*"
 imagefmt = "*"
 log = "*"
 rand = "*"
+math = { path = "../math" }

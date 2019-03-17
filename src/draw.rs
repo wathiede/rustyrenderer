@@ -2,12 +2,12 @@ use std::f32;
 use std::fmt;
 use std::path;
 
-use imagefmt::ColFmt;
 use imagefmt;
+use imagefmt::ColFmt;
 
 use math;
 
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 pub struct RGB {
     pub r: u8,
     pub g: u8,
@@ -27,22 +27,20 @@ pub struct DepthBuffer {
     pub buf: Vec<f32>,
 }
 
-
 impl DepthBuffer {
     pub fn new(w: usize, h: usize) -> Self {
         return DepthBuffer {
             w: w,
             h: h,
-            buf: vec![f32::MIN; w*h],
+            buf: vec![f32::MIN; w * h],
         };
     }
     pub fn set(&mut self, x: usize, y: usize, z: f32) {
         if x >= self.w || y >= self.h {
-            error!("Out of bounds set depth {},{} size {}x{}",
-                   x,
-                   y,
-                   self.w,
-                   self.h);
+            error!(
+                "Out of bounds set depth {},{} size {}x{}",
+                x, y, self.w, self.h
+            );
 
             return;
         }
@@ -51,11 +49,10 @@ impl DepthBuffer {
     }
     pub fn get(&mut self, x: usize, y: usize) -> f32 {
         if x >= self.w || y >= self.h {
-            error!("Out of bounds get depth {},{} size {}x{}",
-                   x,
-                   y,
-                   self.w,
-                   self.h);
+            error!(
+                "Out of bounds get depth {},{} size {}x{}",
+                x, y, self.w, self.h
+            );
 
             return 0.;
         }
@@ -91,11 +88,10 @@ impl Texture2D {
         // let (x, y) = (((uv.x * w) % w) as usize, ((uv.y * h) % h) as usize);
         let (x, y) = (((uv.x * w) % w) as usize, (((1. - uv.y) * h) % h) as usize);
         if x >= self.w || y >= self.h {
-            error!("Out of bounds set pixel {},{} size {}x{}",
-                   x,
-                   y,
-                   self.w,
-                   self.h);
+            error!(
+                "Out of bounds set pixel {},{} size {}x{}",
+                x, y, self.w, self.h
+            );
             return RGB { r: 0, g: 0, b: 0 };
         }
         let off = (x + y * self.w) * 3;
@@ -121,16 +117,15 @@ impl Image {
         return Image {
             w: w,
             h: h,
-            buf: vec![0; w*h*3],
+            buf: vec![0; w * h * 3],
         };
     }
     pub fn set(&mut self, x: usize, y: usize, c: RGB) {
         if x >= self.w || y >= self.h {
-            error!("Out of bounds set pixel {},{} size {}x{}",
-                   x,
-                   y,
-                   self.w,
-                   self.h);
+            error!(
+                "Out of bounds set pixel {},{} size {}x{}",
+                x, y, self.w, self.h
+            );
             return;
         }
         let off = (x + y * self.w) * 3;
@@ -140,11 +135,10 @@ impl Image {
     }
     pub fn get(&mut self, x: usize, y: usize) -> RGB {
         if x >= self.w || y >= self.h {
-            error!("Out of bounds set pixel {},{} size {}x{}",
-                   x,
-                   y,
-                   self.w,
-                   self.h);
+            error!(
+                "Out of bounds set pixel {},{} size {}x{}",
+                x, y, self.w, self.h
+            );
             return RGB { r: 0, g: 0, b: 0 };
         }
         let off = (x + y * self.w) * 3;
@@ -194,7 +188,6 @@ impl Image {
             };
             self.set(xs, ys, c);
         }
-
     }
 
     // TODO(wathiede): handle the z_buffer more elegantly, maybe create a type Renderer that wraps
@@ -208,12 +201,14 @@ impl Image {
         let (y_min, y_max) = (min(min(v0.y, v1.y), v2.y), max(max(v0.y, v1.y), v2.y));
         for y in y_min..y_max {
             for x in x_min..x_max {
-                let bc = math::barycentric(tri,
-                                           math::Vec3f {
-                                               x: x as f32,
-                                               y: y as f32,
-                                               z: 0.,
-                                           });
+                let bc = math::barycentric(
+                    tri,
+                    math::Vec3f {
+                        x: x as f32,
+                        y: y as f32,
+                        z: 0.,
+                    },
+                );
                 if bc.x < 0. || bc.y < 0. || bc.z < 0. {
                     continue;
                 }
